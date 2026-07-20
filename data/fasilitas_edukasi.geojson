@@ -1,0 +1,10 @@
+{
+"type": "FeatureCollection",
+"name": "fasilitas_edukasi",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "nama": "Pusat Informasi Wisata", "kategori": "Fasilitas Edukasi", "kapasitas_pengunjung_harian": 300, "jenis_layanan_informasi": "Loket tiket, peta cetak, pemandu wisata", "periode": "Hindu", "keterangan": "Loket, peta, dan pemandu wisata." }, "geometry": { "type": "Point", "coordinates": [ 110.2068, -7.6068 ] } },
+{ "type": "Feature", "properties": { "nama": "Museum Situs Giri Wangun", "kategori": "Fasilitas Edukasi", "kapasitas_pengunjung_harian": 150, "jenis_layanan_informasi": "Pameran artefak & panel edukasi sejarah", "periode": "Hindu", "keterangan": "Koleksi artefak hasil ekskavasi." }, "geometry": { "type": "Point", "coordinates": [ 110.2071, -7.6089 ] } },
+{ "type": "Feature", "properties": { "nama": "Gedung Edukasi & Interpretasi", "kategori": "Fasilitas Edukasi", "kapasitas_pengunjung_harian": 200, "jenis_layanan_informasi": "Audiovisual, ruang diskusi kelompok pelajar", "periode": "Hindu", "keterangan": "Ruang audiovisual edukasi publik." }, "geometry": { "type": "Point", "coordinates": [ 110.2058, -7.6055 ] } }
+]
+}

@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "situs_utama",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "nama": "Candi Giri Wangun", "abad_pembuatan": "Abad ke-9 Masehi", "kerajaan_dinasti_pendiri": "Wangsa Sailendra", "status_konservasi": "Terpugar Sebagian", "tingkat_risiko_kerusakan": "Sedang", "periode": "Hindu", "kategori": "Situs Utama", "keterangan": "Struktur utama candi peninggalan abad ke-9, relief bercorak Hindu-Buddha." }, "geometry": { "type": "Point", "coordinates": [ 110.204, -7.608 ] } }
+]
+}

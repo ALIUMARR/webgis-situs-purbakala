@@ -1,0 +1,11 @@
+{
+"type": "FeatureCollection",
+"name": "pos_pemantauan",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "nama": "Pos Jaga Utara", "kategori": "Pos Pemantauan", "petugas_per_shift": 2, "periode": "Hindu", "keterangan": "Pengawasan 24 jam & pencatatan pengunjung." }, "geometry": { "type": "Point", "coordinates": [ 110.204, -7.6059 ] } },
+{ "type": "Feature", "properties": { "nama": "Pos Jaga Selatan", "kategori": "Pos Pemantauan", "petugas_per_shift": 2, "periode": "Hindu", "keterangan": "Pengawasan 24 jam & pencatatan pengunjung." }, "geometry": { "type": "Point", "coordinates": [ 110.204, -7.6101 ] } },
+{ "type": "Feature", "properties": { "nama": "Pos Jaga Timur", "kategori": "Pos Pemantauan", "petugas_per_shift": 1, "periode": "Hindu", "keterangan": "Pengawasan 24 jam & pencatatan pengunjung." }, "geometry": { "type": "Point", "coordinates": [ 110.2061, -7.608 ] } },
+{ "type": "Feature", "properties": { "nama": "Pos Jaga Barat", "kategori": "Pos Pemantauan", "petugas_per_shift": 1, "periode": "Hindu", "keterangan": "Pengawasan 24 jam & pencatatan pengunjung." }, "geometry": { "type": "Point", "coordinates": [ 110.2019, -7.608 ] } }
+]
+}
