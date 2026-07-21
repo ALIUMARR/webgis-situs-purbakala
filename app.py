@@ -7,7 +7,7 @@ Cara jalankan (lokal):
     streamlit run app.py
 
 Cara publikasi publik (gratis):
-    1. Push seluruh isi folder ini (app.py, requirements.txt, data/) ke repo GitHub.
+    1. Push folder ini ke sebuah repo GitHub.
     2. Buka https://share.streamlit.io -> New app -> pilih repo -> pilih app.py.
     3. Streamlit Community Cloud akan memberi URL publik (contoh:
        https://nama-app.streamlit.app) yang bisa dibuka dari HP/Laptop
@@ -27,11 +27,34 @@ st.set_page_config(
     layout="wide",
 )
 
-# app.py dan folder data/ berada tepat sejajar di dalam folder proyek yang sama
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+# -----------------------------------------------------------------------
+# Styling global: seluruh font memakai Times New Roman, dan judul/heading
+# (st.title, st.header, st.subheader, markdown ###) berwarna hitam.
+# -----------------------------------------------------------------------
+st.markdown(
+    """
+    <style>
+    html, body, [class^="css"], [class*=" css"],
+    .stApp, .stMarkdown, .stMarkdown p, .stMarkdown li,
+    .stText, .stCaption, .stMetric, .stTable, .stDataFrame,
+    p, div, span, label, li, td, th, input, textarea, select {
+        font-family: "Times New Roman", Times, serif !important;
+    }
+    h1, h2, h3, h4, h5, h6,
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
+    .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+        font-family: "Times New Roman", Times, serif !important;
+        color: #000000 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), "webgis_situs_purbakala", "data")
 
 # -----------------------------------------------------------------------
-# 1. STYLING & SIMBOLISASI -- sesuai poin 2a-2e instruksi tugas
+# Konfigurasi styling tiap layer (warna & simbol) sesuai arahan tugas
 # -----------------------------------------------------------------------
 LAYER_CONFIG = {
     "zonasi_inti": {
@@ -82,33 +105,11 @@ LAYER_CONFIG = {
         "file": "situs_utama.geojson",
         "label": "🏛️ Titik Candi (Situs Utama)",
         "type": "point",
-        "color": "red",
+        "color": "darkred",
         "icon": "star",
         "default_on": True,
     },
 }
-
-# Label atribut yang ditampilkan di pop-up per layer (urut sesuai instruksi tugas)
-POPUP_FIELDS = {
-    "situs_utama": [
-        ("nama", "Nama Candi"),
-        ("abad_pembuatan", "Abad Pembuatan"),
-        ("kerajaan_dinasti_pendiri", "Kerajaan / Dinasti Pendiri"),
-        ("status_konservasi", "Status Konservasi"),
-        ("tingkat_risiko_kerusakan", "Tingkat Risiko Kerusakan"),
-    ],
-    "fasilitas_edukasi": [
-        ("nama", "Nama Fasilitas"),
-        ("kapasitas_pengunjung_harian", "Kapasitas Pengunjung Harian"),
-        ("jenis_layanan_informasi", "Jenis Layanan Informasi"),
-    ],
-    "pos_pemantauan": [
-        ("nama", "Nama Pos"),
-        ("petugas_per_shift", "Petugas per Shift"),
-        ("keterangan", "Keterangan"),
-    ],
-}
-DEFAULT_POPUP_FIELDS = [("nama", "Nama"), ("kategori", "Kategori"), ("keterangan", "Keterangan")]
 
 
 @st.cache_data
@@ -118,16 +119,14 @@ def load_geojson(filename):
         return json.load(f)
 
 
-def build_popup_html(layer_key, props):
-    fields = POPUP_FIELDS.get(layer_key, DEFAULT_POPUP_FIELDS)
+def popup_html(props):
     rows = "".join(
-        f"<b>{label}</b>: {props.get(key, '-')}<br>"
-        for key, label in fields
-        if key in props
+        f"<b>{k.replace('_', ' ').title()}</b>: {v}<br>"
+        for k, v in props.items()
+        if k != "geometry"
     )
-    if not rows:
-        rows = "<i>Tidak ada atribut tambahan.</i>"
-    return f"<div style='font-family: Arial; font-size: 13px; width: 220px;'>{rows}</div>"
+    html = f"<div style='font-family: \"Times New Roman\", Times, serif;'>{rows}</div>"
+    return folium.Popup(html, max_width=280)
 
 
 def normalize_text(value):
@@ -138,16 +137,17 @@ def feature_matches_filter(props, search_query: str, selected_period: str) -> bo
     if selected_period and selected_period != "Semua Periode":
         if normalize_text(props.get("periode", "")) != normalize_text(selected_period):
             return False
+
     if search_query:
         haystack = " ".join(
             normalize_text(props.get(key, ""))
             for key in ("nama", "kategori", "keterangan", "periode")
         )
         return normalize_text(search_query) in haystack
+
     return True
 
 
-@st.cache_data
 def collect_periods():
     periods = set()
     for cfg in LAYER_CONFIG.values():
@@ -159,93 +159,88 @@ def collect_periods():
     return sorted(periods)
 
 
-# -----------------------------------------------------------------------
-# 2. INTERAKTIVITAS -- pop-up atribut, layer control, filter dinamis
-# -----------------------------------------------------------------------
 def build_map(active_layers, basemap, search_query="", selected_period="Semua Periode"):
     m = folium.Map(
         location=[-7.60800, 110.20400],
         zoom_start=16,
         tiles=None,
-        control_scale=True,  # menampilkan skala di pojok peta
+        control_scale=True,
     )
 
+    basemaps = {
+        "OpenStreetMap": "OpenStreetMap",
+        "Citra Satelit (Esri)": (
+            "https://server.arcgisonline.com/ArcGIS/rest/services/"
+            "World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        ),
+    }
     if basemap == "OpenStreetMap":
         folium.TileLayer("OpenStreetMap", name="OpenStreetMap").add_to(m)
     else:
         folium.TileLayer(
-            tiles=(
-                "https://server.arcgisonline.com/ArcGIS/rest/services/"
-                "World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            ),
+            tiles=basemaps["Citra Satelit (Esri)"],
             attr="Esri World Imagery",
             name="Citra Satelit (Esri)",
         ).add_to(m)
-
-    any_feature_shown = False
 
     for key, cfg in LAYER_CONFIG.items():
         if key not in active_layers:
             continue
         gj = load_geojson(cfg["file"])
-        fg = folium.FeatureGroup(name=cfg["label"])
 
         if cfg["type"] == "polygon":
+            fg = folium.FeatureGroup(name=cfg["label"])
             for feat in gj["features"]:
                 props = feat["properties"]
                 if not feature_matches_filter(props, search_query, selected_period):
                     continue
-                any_feature_shown = True
+                html_popup = "<div style='font-family: \"Times New Roman\", Times, serif; width: 200px;'>"
+                for k, v in props.items():
+                    html_popup += f"<b>{k.replace('_', ' ').title()}</b>: {v}<br>"
+                html_popup += "</div>"
                 folium.GeoJson(
                     feat,
                     style_function=lambda x, s=cfg["style"]: s,
                     highlight_function=lambda x: {"weight": 3, "fillOpacity": 0.6},
-                    popup=folium.Popup(build_popup_html(key, props), max_width=280),
-                    tooltip=props.get("nama", ""),
+                    popup=folium.Popup(html_popup, max_width=280),
                 ).add_to(fg)
+            fg.add_to(m)
         else:  # point
+            fg = folium.FeatureGroup(name=cfg["label"])
             for feat in gj["features"]:
                 props = feat["properties"]
                 if not feature_matches_filter(props, search_query, selected_period):
                     continue
-                any_feature_shown = True
                 lon, lat = feat["geometry"]["coordinates"]
                 folium.Marker(
                     location=[lat, lon],
-                    popup=folium.Popup(build_popup_html(key, props), max_width=280),
+                    popup=popup_html(props),
                     tooltip=props.get("nama", ""),
                     icon=folium.Icon(color=cfg["color"], icon=cfg["icon"]),
                 ).add_to(fg)
+            fg.add_to(m)
 
-        fg.add_to(m)
-
-    # Layer Control di pojok kanan atas peta (checkbox show/hide tiap layer)
-    folium.LayerControl(collapsed=False, position="topright").add_to(m)
-    return m, any_feature_shown
+    folium.LayerControl(collapsed=False).add_to(m)
+    return m
 
 
 # ------------------------------- UI -------------------------------------
 st.title("🏛️ Peta Interaktif Zonasi Konservasi & Aksesibilitas Wisata Edukasi Situs Purbakala")
 st.caption(
     "Data pada peta ini adalah **data contoh (dummy)** untuk keperluan tugas. "
-    "Ganti file di folder `data/` dengan hasil ekspor GeoJSON dari analisis QGIS Anda "
-    "(pertahankan nama kolom atribut agar pop-up & filter tetap berfungsi)."
+    "Ganti file di folder `data/` dengan hasil ekspor GeoJSON dari analisis QGIS Anda."
 )
 
 with st.sidebar:
     st.header("⚙️ Pengaturan Peta")
     basemap = st.radio("Basemap", ["OpenStreetMap", "Citra Satelit (Esri)"])
 
-    st.subheader("🔎 Filter Dinamis")
-    search_query = st.text_input("Cari nama / kategori / keterangan", "")
+    st.subheader("Filter Periode Historis")
+    search_query = st.text_input("Cari tempat / kata kunci", "")
     available_periods = ["Semua Periode"] + collect_periods()
-    selected_period = st.selectbox(
-        "Filter Periodisasi Situs (Hindu / Buddha / Megalitikum)",
-        available_periods,
-        index=0,
-    )
+    selected_period = st.selectbox("Periode Historis", available_periods, index=0)
 
-    st.subheader("🗂️ Layer Control")
+    st.subheader("Layer aktif")
     active_layers = []
     for key, cfg in LAYER_CONFIG.items():
         checked = st.checkbox(cfg["label"], value=cfg["default_on"], key=f"chk_{key}")
@@ -257,18 +252,16 @@ with st.sidebar:
         "**Legenda Simbolisasi**\n"
         "- 🔴 Zonasi Inti Candi — konservasi ketat\n"
         "- 🟧 Zonasi Penyangga — aktivitas terbatas\n"
-        "- 🟡🟠 Buffer Kerentanan Getaran 500 m & 1000 m — gradasi transparansi\n"
-        "- 🟢 Pusat Informasi & Fasilitas Edukasi\n"
-        "- 🔵 Pos Pemantauan / Penjaga Situs"
+        "- 🟢 Fasilitas Edukasi & Informasi\n"
+        "- 🔵 Pos Pemantauan/Penjaga\n"
+        "- Gradasi kuning→oranye transparan — buffer kerentanan getaran 500 m & 1000 m"
     )
 
 col1, col2 = st.columns([3, 1])
 
 with col1:
-    m, ada_hasil = build_map(active_layers, basemap, search_query, selected_period)
+    m = build_map(active_layers, basemap, search_query=search_query, selected_period=selected_period)
     st_folium(m, width=None, height=650, returned_objects=[])
-    if not ada_hasil and active_layers:
-        st.warning("Tidak ada fitur yang cocok dengan filter/pencarian saat ini.")
 
 with col2:
     st.subheader("📊 Ringkasan Zonasi")
@@ -282,76 +275,74 @@ with col2:
         - Radius 1000 m: pemantauan berkala getaran & retakan struktur.
         """
     )
-    st.info("Klik simbol atau poligon pada peta untuk melihat pop-up atribut detail.")
+    st.info(
+        "Klik salah satu simbol/poligon pada peta untuk melihat detail atribut "
+        "(nama, kategori, dan keterangan)."
+    )
 
-# -----------------------------------------------------------------------
-# 3. KONTEKS & RINGKASAN EKSEKUTIF
-# -----------------------------------------------------------------------
 st.markdown("---")
 st.subheader("📌 Ringkasan Eksekutif")
 st.markdown(
-    "Analisis spasial menunjukkan bahwa **zonasi inti Candi Giri Wangun tergolong stabil** "
-    "karena berada dalam pengawasan langsung pos jaga dan pembatasan akses kendaraan. "
-    "Namun, temuan utama analisis delineasi kawasan cagar budaya mengindikasikan adanya "
-    "**ancaman ekspansi permukiman di sekitar batas luar zonasi penyangga (buffer zone)**, "
-    "yang berpotensi mempersempit ruang penyangga fungsional candi dan meningkatkan beban "
-    "getaran serta lalu lintas kendaraan warga pada radius 500 m–1000 m dari struktur candi. "
-    "Jika tidak dikendalikan melalui regulasi tata ruang, tren ini dapat mempercepat "
-    "degradasi struktur candi dan mengurangi efektivitas zona penyangga sebagai penyangga "
-    "risiko fisik maupun sosial. Rekomendasi prioritas: penegakan IMB/tata ruang di kawasan "
-    "penyangga, moratorium alih fungsi lahan pertanian menjadi permukiman baru dalam radius "
-    "1 km, serta pelibatan masyarakat sekitar dalam program wisata edukasi agar tekanan "
-    "ekspansi permukiman dapat dialihkan menjadi nilai ekonomi dari pelestarian situs."
+    "Data peta ini menunjukkan zonasi konservasi, wilayah buffer getaran, fasilitas edukasi, dan pos pemantauan untuk mendukung pengelolaan situs purbakala secara berkelanjutan. "
+    "Analisis menekankan perlunya pembatasan aktivitas pada zona inti, pengaturan wisata edukasi di zona penyangga, dan pemantauan getaran di radius 500 m dan 1000 m."
 )
 
-st.subheader("📊 Tabel Data Pendukung Analisis")
+st.subheader("📊 Data Pendukung Analisis")
 st.table(
     [
-        {"Layer": "Zonasi Inti", "Sumber Data": "Analisis QGIS - delineasi konservasi", "Jumlah Fitur": 1, "Keterangan": "Area tingkat perlindungan tertinggi"},
-        {"Layer": "Zonasi Penyangga", "Sumber Data": "Analisis QGIS - buffer zone", "Jumlah Fitur": 1, "Keterangan": "Zona pembatas aktivitas, rawan tekanan ekspansi permukiman"},
-        {"Layer": "Buffer Getaran 500 m", "Sumber Data": "Analisis dampak getaran", "Jumlah Fitur": 1, "Keterangan": "Area rentan getaran tinggi"},
-        {"Layer": "Buffer Getaran 1000 m", "Sumber Data": "Analisis dampak getaran", "Jumlah Fitur": 1, "Keterangan": "Zona pemantauan getaran sedang"},
-        {"Layer": "Fasilitas Edukasi", "Sumber Data": "Inventarisasi lapangan", "Jumlah Fitur": 3, "Keterangan": "Pusat informasi, museum, gedung edukasi"},
-        {"Layer": "Pos Pemantauan", "Sumber Data": "Inventarisasi lapangan", "Jumlah Fitur": 4, "Keterangan": "Titik pengawasan & penjagaan situs"},
+        {"Data": "Zonasi Inti", "Sumber": "Analisis QGIS - delimitasi konservasi", "Keterangan": "Area tingkat perlindungan tertinggi"},
+        {"Data": "Zonasi Penyangga", "Sumber": "Analisis QGIS - buffer zone", "Keterangan": "Zona pembatas aktivitas sekitar situs"},
+        {"Data": "Buffer Getaran 500 m", "Sumber": "Analisis dampak getaran", "Keterangan": "Area rentan terhadap getaran dari kegiatan sekitar"},
+        {"Data": "Buffer Getaran 1000 m", "Sumber": "Analisis dampak getaran", "Keterangan": "Zona pemantauan tambahan untuk mitigasi"},
+        {"Data": "Fasilitas Edukasi", "Sumber": "Inventarisasi lapangan", "Keterangan": "Pusat informasi dan edukasi pengunjung"},
+        {"Data": "Pos Pemantauan", "Sumber": "Inventarisasi lapangan", "Keterangan": "Titik pengawasan dan penjagaan situs"},
     ]
 )
 
 st.subheader("🎨 Simbolisasi Warna")
 st.table(
     [
-        {"Simbol": "🔴", "Layer": "Zonasi Inti Candi", "Makna": "Konservasi ketat"},
-        {"Simbol": "🟧", "Layer": "Zonasi Penyangga", "Makna": "Aktivitas terbatas"},
-        {"Simbol": "🟠", "Layer": "Buffer Getaran 500 m", "Makna": "Kewaspadaan tinggi"},
-        {"Simbol": "🟡", "Layer": "Buffer Getaran 1000 m", "Makna": "Kewaspadaan sedang"},
-        {"Simbol": "🟢", "Layer": "Fasilitas Edukasi", "Makna": "Titik informasi/edukasi"},
-        {"Simbol": "🔵", "Layer": "Pos Pemantauan", "Makna": "Titik penjagaan"},
+        {"Simbol": "🔴", "Makna": "Zonasi Inti - konservasi ketat"},
+        {"Simbol": "🟧", "Makna": "Zonasi Penyangga - aktivitas terbatas"},
+        {"Simbol": "🟡", "Makna": "Buffer Getaran 1000 m - kewaspadaan moderat"},
+        {"Simbol": "🟠", "Makna": "Buffer Getaran 500 m - kewaspadaan tinggi"},
+        {"Simbol": "🟢", "Makna": "Fasilitas Edukasi - titik informasi"},
+        {"Simbol": "🔵", "Makna": "Pos Pemantauan - titik penjagaan"},
+        {"Simbol": "🏛️", "Makna": "Situs Utama - titik candi"},
     ]
 )
 
 st.subheader("✨ Fitur Interaktif")
 st.markdown(
-    "- **Pop-up atribut**: klik candi untuk melihat Abad Pembuatan, Kerajaan/Dinasti Pendiri, "
-    "Status Konservasi, dan Tingkat Risiko Kerusakan; klik fasilitas untuk melihat Kapasitas "
-    "Pengunjung Harian dan Jenis Layanan Informasi.\n"
-    "- **Layer Control**: checkbox di sidebar & pojok kanan atas peta untuk menampilkan/"
-    "menyembunyikan tiap layer (mis. matikan *Buffer Kerentanan Getaran* untuk fokus ke fasilitas wisata).\n"
-    "- **Filter Periodisasi**: dropdown untuk menyaring situs berdasarkan periode (Hindu/Buddha/Megalitikum).\n"
-    "- **Pencarian**: kotak teks untuk mencari fitur berdasarkan nama/kategori/keterangan.\n"
-    "- **Ganti Basemap**: OpenStreetMap ↔ Citra Satelit Esri.\n"
-    "- **Skala peta**: otomatis tampil di pojok kiri bawah (`control_scale`)."
+    "- Pilih layer yang ingin ditampilkan di sidebar untuk fokus pada tema tertentu.\n"
+    "- Ganti basemap antara OpenStreetMap dan Citra Satelit untuk perbandingan visual.\n"
+    "- Klik poligon atau marker untuk melihat informasi atribut setiap fitur.\n"
 )
 
 st.subheader("📚 Data Referensi")
 st.markdown(
-    "- Data spasial dihasilkan dari analisis QGIS (delineasi kawasan cagar budaya & pemetaan "
-    "konflik pemanfaatan lahan), diekspor ke format GeoJSON (EPSG:4326).\n"
-    "- Visualisasi peta: Folium (Leaflet.js) dan antarmuka web: Streamlit.\n"
-    "- Rujukan kebijakan: UU No. 11 Tahun 2010 tentang Cagar Budaya (zonasi inti & penyangga), "
-    "pedoman mitigasi getaran struktur bangunan cagar budaya, dan prinsip wisata edukasi "
-    "berkelanjutan (sustainable heritage tourism)."
+    "- Data spasial dihasilkan dari analisis QGIS dan diekspor ke format GeoJSON.\n"
+    "- Peta ini menggunakan Folium untuk visualisasi dan Streamlit untuk antarmuka web.\n"
+    "- Referensi metodologi: tata ruang konservasi cagar budaya, pedoman mitigasi getaran, dan prinsip wisata edukasi berkelanjutan."
 )
 
 st.caption(
     "Sumber: Analisis spasial delineasi kawasan cagar budaya (diekspor dari QGIS ke GeoJSON). "
     "Dipublikasikan sebagai WebGIS ringan menggunakan Streamlit + Folium."
 )
+
+
+def _is_streamlit_runtime_active() -> bool:
+    try:
+        import streamlit.runtime as runtime
+        return runtime.exists()
+    except Exception:
+        return False
+
+
+if __name__ == "__main__" and not _is_streamlit_runtime_active():
+    import subprocess
+    import sys
+
+    subprocess.Popen([sys.executable, "-m", "streamlit", "run", os.path.abspath(__file__)])
+    sys.exit(0)
