@@ -44,7 +44,13 @@ st.markdown(
     .stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
     .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
         font-family: "Times New Roman", Times, serif !important;
-        color: #000000 !important;
+        color: #FFFFFF !important;
+        background-color: #1B4332 !important;
+        padding: 10px 16px !important;
+        border-radius: 6px !important;
+        display: block !important;
+        margin-top: 0.6em !important;
+        margin-bottom: 0.6em !important;
     }
     </style>
     """,
