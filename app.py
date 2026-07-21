@@ -51,7 +51,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "webgis_situs_purbakala", "data")
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 # -----------------------------------------------------------------------
 # Konfigurasi styling tiap layer (warna & simbol) sesuai arahan tugas
